@@ -740,6 +740,22 @@ dt_view_surface_value_t dt_view_image_get_surface(const dt_imgid_t imgid,
   const int buf_wd = buf.width;
   const int buf_ht = buf.height;
 
+  int x_offset = 0;
+  int y_offset = 0;
+  int draw_width = buf_wd;
+  int draw_height = buf_ht;
+
+  gboolean square_thumbnails = dt_conf_get_bool("ui_last/square_thumbnails");
+  dt_view_type_flags_t current_view = dt_view_get_current();
+  if (square_thumbnails && (current_view & DT_VIEW_LIGHTTABLE))
+  {
+    int min_buf_side = buf_wd < buf_ht ? buf_wd : buf_ht;
+    x_offset = (buf_wd - min_buf_side) / 2;
+    y_offset = (buf_ht - min_buf_side) / 2;
+    draw_width = min_buf_side;
+    draw_height = min_buf_side;
+  }
+
   // if we don't get buffer, no image is awailable at the moment
   if(!buf.buf)
   {
@@ -748,10 +764,11 @@ dt_view_surface_value_t dt_view_image_get_surface(const dt_imgid_t imgid,
   }
 
   // so we create a new image surface to return
-  float scale = fminf(width / (float)buf_wd,
-                      height / (float)buf_ht) * darktable.gui->ppd_thb;
-  const int img_width = roundf(buf_wd * scale);
-  const int img_height = roundf(buf_ht * scale);
+  float scale = fminf(width / (float)draw_width,
+                      height / (float)draw_height) * darktable.gui->ppd_thb;
+  const int img_width = roundf(draw_width * scale);
+  const int img_height = roundf(draw_height * scale);
+
   // due to the forced rounding above, we need to recompute scaling
   scale = fmaxf(img_width / (float)buf_wd, img_height / (float)buf_ht);
   *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, img_width, img_height);
@@ -803,11 +820,12 @@ dt_view_surface_value_t dt_view_image_get_surface(const dt_imgid_t imgid,
     }
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(buf, rgbbuf, transform)
+#pragma omp parallel for schedule(static) default(none) \
+  shared(buf, rgbbuf, transform, draw_height, draw_width, y_offset, x_offset)
 #endif
-    for(int i = 0; i < buf.height; i++)
+    for(int i = 0; i < draw_height; i++)
     {
-      const uint8_t *in = buf.buf + i * buf.width * 4;
+      const uint8_t *in = buf.buf + (i + y_offset) * buf.width * 4 + x_offset * 4;
       uint8_t *out = rgbbuf + i * buf.width * 4;
 
       if(transform)
@@ -816,7 +834,7 @@ dt_view_surface_value_t dt_view_image_get_surface(const dt_imgid_t imgid,
       }
       else
       {
-        for(int j = 0; j < buf.width; j++, in += 4, out += 4)
+        for(int j = 0; j < draw_width; j++, in += 4, out += 4)
         {
           out[0] = in[2];
           out[1] = in[1];

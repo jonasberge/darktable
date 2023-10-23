@@ -2052,6 +2052,24 @@ void dtgtk_cairo_paint_help(cairo_t *cr, gint x, gint y, gint w, gint h, gint fl
   FINISH
 }
 
+void dtgtk_cairo_paint_square_tumbnail(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
+{
+  PREAMBLE(1, 1, 0, 0)
+
+  if(flags & CPF_ACTIVE)
+  {
+    cairo_rectangle(cr, 0.1, 0.1, 0.8, 0.8);
+    cairo_fill(cr);
+  }
+  else
+  {
+    cairo_rectangle(cr, 0.1, 0.1, 0.8, 0.8);
+    cairo_stroke(cr);
+  }
+
+  FINISH
+}
+
 void dtgtk_cairo_paint_grouping(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
 {
   PREAMBLE(1, 1, 0, 0)

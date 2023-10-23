@@ -36,7 +36,7 @@ DT_MODULE(1)
 
 typedef struct dt_lib_tool_preferences_t
 {
-  GtkWidget *preferences_button, *grouping_button, *overlays_button, *help_button, *keymap_button;
+  GtkWidget *preferences_button, *square_thumbnails_button, *grouping_button, *overlays_button, *help_button, *keymap_button;
   GtkWidget *over_popup, *thumbnails_box, *culling_box;
   GtkWidget *over_label, *over_r0, *over_r1, *over_r2, *over_r3, *over_r4, *over_r5, *over_r6, *over_timeout,
       *over_tt;
@@ -45,6 +45,8 @@ typedef struct dt_lib_tool_preferences_t
   gboolean disable_over_events;
 } dt_lib_tool_preferences_t;
 
+/* callback for square thumbnails button */
+static void _lib_filter_square_thumbnails_button_clicked(GtkWidget *widget, gpointer user_data);
 /* callback for grouping button */
 static void _lib_filter_grouping_button_clicked(GtkWidget *widget, gpointer user_data);
 /* callback for preference button */
@@ -482,6 +484,18 @@ void gui_init(dt_lib_module_t *self)
 
   gtk_widget_show_all(vbox);
 
+  /* create the square thumbnail button */
+  d->square_thumbnails_button = dtgtk_togglebutton_new(dtgtk_cairo_paint_square_tumbnail, 0, NULL);
+  dt_action_define(&darktable.control->actions_global, NULL, N_("square thumbnails"), d->square_thumbnails_button, &dt_action_def_toggle);
+  gtk_box_pack_start(GTK_BOX(self->widget), d->square_thumbnails_button, FALSE, FALSE, 0);
+  if(darktable.gui->square_tumbnails)
+    gtk_widget_set_tooltip_text(d->square_thumbnails_button, _("show original thumbnails"));
+  else
+    gtk_widget_set_tooltip_text(d->square_thumbnails_button, _("show square thumbnails"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(d->square_thumbnails_button), darktable.gui->square_tumbnails);
+  g_signal_connect(G_OBJECT(d->square_thumbnails_button), "clicked", G_CALLBACK(_lib_filter_square_thumbnails_button_clicked),
+                   NULL);
+
   /* create the widget help button */
   d->help_button = dtgtk_togglebutton_new(dtgtk_cairo_paint_help, 0, NULL);
   dt_action_define(&darktable.control->actions_global, NULL, N_("help"), d->help_button, &dt_action_def_toggle);
@@ -523,6 +537,23 @@ void gui_cleanup(dt_lib_module_t *self)
 void _lib_preferences_button_clicked(GtkWidget *widget, gpointer user_data)
 {
   dt_gui_preferences_show();
+}
+
+static void _lib_filter_square_thumbnails_button_clicked(GtkWidget *widget, gpointer user_data)
+{
+  darktable.gui->square_tumbnails = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  if(darktable.gui->square_tumbnails)
+    gtk_widget_set_tooltip_text(widget, _("show original thumbnails"));
+  else
+    gtk_widget_set_tooltip_text(widget, _("show square thumbnails"));
+  dt_conf_set_bool("ui_last/square_thumbnails", darktable.gui->square_tumbnails);
+
+  struct dt_thumbtable_t *thumbtable = dt_ui_thumbtable(darktable.gui->ui);
+  for (GList *list = thumbtable->list; list; list = list->next) {
+    dt_thumbnail_t *thumbnail = (dt_thumbnail_t *)list->data;
+    thumbnail->img_surf_dirty = TRUE;
+    gtk_widget_queue_draw(thumbnail->w_image);
+  }
 }
 
 static void _lib_filter_grouping_button_clicked(GtkWidget *widget, gpointer user_data)
